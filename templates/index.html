@@ -696,81 +696,83 @@
           throw new Error(data.error || 'Failed to parse');
         }
 
-        const action = data.action;
-        const args = data.args || {};
+        const actions = data.actions || [{ action: data.action, args: data.args }];
+        let successHTML = "";
 
-        if (args.needs_clarification) {
-          statusMsg.className = 'status error';
-          statusMsg.textContent = `Clarification: ${args.clarification_question}`;
-          submitBtn.disabled = false;
-          return;
-        }
+        for (const act of actions) {
+          const action = act.action;
+          const args = act.args || {};
 
-        if (action === 'create_event') {
-          statusMsg.className = 'status success';
-          statusMsg.textContent = 'Creating .ics file...';
+          if (args.needs_clarification) {
+            statusMsg.className = 'status error';
+            statusMsg.textContent = `Clarification: ${args.clarification_question}`;
+            submitBtn.disabled = false;
+            return;
+          }
 
-          const uid = `${Date.now()}@calendaragent`;
-          const newEvent = {
-            uid: uid,
-            title: args.title,
-            start: args.start,
-            end: args.end,
-            location: args.location || '',
-            notes: args.notes || '',
-            all_day: args.all_day || false,
-            alert_minutes: args.alert_minutes !== undefined ? args.alert_minutes : null
-          };
+          if (action === 'create_event') {
+            const uid = `${Date.now()}@calendaragent`;
+            const newEvent = {
+              uid: uid,
+              title: args.title,
+              start: args.start,
+              end: args.end,
+              location: args.location || '',
+              notes: args.notes || '',
+              all_day: args.all_day || false,
+              alert_minutes: args.alert_minutes !== undefined ? args.alert_minutes : null
+            };
 
-          const icsContent = generateICS(newEvent);
-          const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = `${args.title.replace(/\s+/g, '_') || 'event'}.ics`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+            const icsContent = generateICS(newEvent);
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${args.title.replace(/\s+/g, '_') || 'event'}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-          // Save event
-          const currentEvents = getStoredEvents();
-          currentEvents.push(newEvent);
-          saveStoredEvents(currentEvents);
+            // Save event
+            const currentEvents = getStoredEvents();
+            currentEvents.push(newEvent);
+            saveStoredEvents(currentEvents);
 
-          const gCalUrl = generateGoogleCalendarUrl(newEvent);
-          statusMsg.innerHTML = `Successfully created event "${args.title}"!<br>` +
-            `1. <span style="color: var(--text-muted);">Local Apple Calendar:</span> Tap the downloaded .ics file.<br>` +
-            `2. <span style="color: var(--text-muted);">Google Calendar:</span> <a href="${gCalUrl}" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Add to Google Calendar</a>`;
-          eventInput.value = '';
-        } else if (action === 'delete_event') {
-          statusMsg.className = 'status success';
-          statusMsg.textContent = 'Searching for event to cancel...';
+            const gCalUrl = generateGoogleCalendarUrl(newEvent);
+            successHTML += `📅 **Event Created:** "${args.title}"!<br>` +
+              `- <span style="color: var(--text-muted);">Apple Calendar:</span> Tap the downloaded .ics file.<br>` +
+              `- <span style="color: var(--text-muted);">Google Calendar:</span> <a href="${gCalUrl}" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Add to Google Calendar</a><br><br>`;
+          } else if (action === 'create_alarm') {
+            successHTML += `⏰ **Alarm Queued:** set for <strong>${args.time}</strong> (Label: "${args.label}"). This will sync to your iPhone Clock automatically when you close the app.<br><br>`;
+          } else if (action === 'delete_event') {
+            const titleToCancel = args.title.toLowerCase();
+            const currentEvents = getStoredEvents();
+            const matches = currentEvents.filter(e => e.title.toLowerCase().includes(titleToCancel));
 
-          const titleToCancel = args.title.toLowerCase();
-          const currentEvents = getStoredEvents();
-
-          // Match by title
-          const matches = currentEvents.filter(e => e.title.toLowerCase().includes(titleToCancel));
-
-          if (matches.length === 0) {
-            throw new Error(`Could not find any event matching "${args.title}" in your list.`);
-          } else if (matches.length > 1) {
-            // If multiple matches, see if we can filter by date if provided
-            if (args.date) {
-              const matchedDate = matches.filter(e => e.start.includes(args.date));
-              if (matchedDate.length === 1) {
-                deleteEventById(matchedDate[0].uid);
-                statusMsg.textContent = `Deleted "${matchedDate[0].title}".`;
-                eventInput.value = '';
-                return;
+            if (matches.length === 0) {
+              throw new Error(`Could not find any event matching "${args.title}" in your list.`);
+            } else if (matches.length > 1) {
+              if (args.date) {
+                const matchedDate = matches.filter(e => e.start.includes(args.date));
+                if (matchedDate.length === 1) {
+                  deleteEventById(matchedDate[0].uid);
+                  successHTML += `🗑️ **Event Deleted:** "${matchedDate[0].title}".<br><br>`;
+                  continue;
+                }
               }
+              throw new Error(`Multiple events matched "${args.title}". Please be more specific or delete manually below.`);
+            } else {
+              deleteEventById(matches[0].uid);
+              successHTML += `🗑️ **Event Deleted:** "${matches[0].title}".<br><br>`;
             }
-            throw new Error(`Multiple events matched "${args.title}". Please be more specific or delete manually below.`);
-          } else {
-            deleteEventById(matches[0].uid);
-            statusMsg.textContent = `Deleted "${matches[0].title}".`;
-            eventInput.value = '';
           }
         }
+
+        if (successHTML) {
+          statusMsg.className = 'status success';
+          statusMsg.innerHTML = successHTML;
+          eventInput.value = '';
+        }
+
       } catch (err) {
         statusMsg.className = 'status error';
         statusMsg.textContent = err.message;

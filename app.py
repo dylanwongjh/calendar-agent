@@ -62,6 +62,41 @@ DELETE_EVENT_TOOL = {
     }
 }
 
+CREATE_ALARM_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "create_alarm",
+        "description": "Set a wake-up alarm for a specific time and label",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "time": {"type": "string", "description": "Format: HH:MM, 24-hour format (e.g. 07:00, 19:30)"},
+                "label": {"type": "string", "description": "Label/name for the alarm (e.g. Basketball Practice Prep)"}
+            },
+            "required": ["time", "label"]
+        }
+    }
+}
+
+ALARMS_FILE = os.path.join(os.path.dirname(__file__), "alarms.json")
+
+def get_pending_alarms():
+    if not os.path.exists(ALARMS_FILE):
+        return []
+    try:
+        with open(ALARMS_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def save_pending_alarms(alarms):
+    try:
+        with open(ALARMS_FILE, "w") as f:
+            json.dump(alarms, f)
+    except Exception:
+        pass
+
+
 PARSE_TIMETABLE_TOOL = {
     "type": "function",
     "function": {
@@ -113,9 +148,9 @@ PARSE_TIMETABLE_TOOL = {
 }
 
 def build_system_prompt(now):
-    return f"""You are a calendar parsing assistant. Current date/time: {now.isoformat()} (Singapore time, SGT/UTC+8).
+    return f"""You are a calendar and alarm parsing assistant. Current date/time: {now.isoformat()} (Singapore time, SGT/UTC+8).
 
-Extract event details from the user's message and call either create_event or delete_event. You MUST call one of these functions — do not reply in plain text.
+Extract event or alarm details from the user's message and call the appropriate functions: create_event, delete_event, or create_alarm. You MUST call one or more of these functions — do not reply in plain text.
 
 For event creation:
 - Call create_event.
@@ -134,6 +169,13 @@ For event deletion/removal:
 - Call delete_event.
 - Use this if the user wants to cancel, remove, or delete an event (e.g. "cancel Basketball Practice", "remove the exam prep session").
 - Try to extract the title and the date of the event they want to remove.
+
+For alarm setting:
+- Call create_alarm.
+- Call this when the user specifically requests to set an alarm or wake up at a specific time (e.g., "set an alarm for 7:00 AM", "wake up at 7am").
+- Set the time in HH:MM format (24-hour clock, e.g., "07:00" or "19:30").
+- Provide a helpful label (e.g., "Wake up for Basketball Practice").
+- If the user wants to set an alarm as part of an event (e.g. "I have basketball practice at 9am, set an alarm to wake up at 7am"), call BOTH create_event (for the practice) and create_alarm (for the wake-up alarm).
 """
 
 @app.route("/parse-event", methods=["POST"])
@@ -151,21 +193,51 @@ def parse_event():
             {"role": "system", "content": build_system_prompt(now)},
             {"role": "user", "content": text}
         ],
-        tools=[CREATE_EVENT_TOOL, DELETE_EVENT_TOOL],
+        tools=[CREATE_EVENT_TOOL, DELETE_EVENT_TOOL, CREATE_ALARM_TOOL],
         tool_choice="auto",
         max_tokens=500,
     )
 
     message = response.choices[0].message
     if message.tool_calls:
-        tool_call = message.tool_calls[0]
-        args = json.loads(tool_call.function.arguments)
+        actions = []
+        for tool_call in message.tool_calls:
+            func_name = tool_call.function.name
+            args = json.loads(tool_call.function.arguments)
+            
+            if func_name == "create_alarm":
+                # Append to persistent alarms queue
+                alarms = get_pending_alarms()
+                alarms.append({
+                    "time": args.get("time"),
+                    "label": args.get("label"),
+                    "created_at": datetime.now(SGT).isoformat()
+                })
+                save_pending_alarms(alarms)
+                
+            actions.append({
+                "action": func_name,
+                "args": args
+            })
+            
+        # Return first action for backward compatibility, and the complete actions array
         return jsonify({
-            "action": tool_call.function.name,
-            "args": args
+            "action": actions[0]["action"],
+            "args": actions[0]["args"],
+            "actions": actions
         })
 
-    return jsonify({"error": "Could not parse event", "raw": message.content}), 400
+    return jsonify({"error": "Could not parse event or alarm", "raw": message.content}), 400
+
+@app.route("/api/alarms/pending", methods=["GET"])
+def api_pending_alarms():
+    return jsonify(get_pending_alarms())
+
+@app.route("/api/alarms/clear", methods=["POST"])
+def api_clear_alarms():
+    save_pending_alarms([])
+    return jsonify({"status": "success", "message": "Pending alarms cleared"})
+
 
 @app.route("/parse-timetable", methods=["POST"])
 def parse_timetable():
