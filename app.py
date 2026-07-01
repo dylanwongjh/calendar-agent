@@ -235,10 +235,11 @@ def parse_event():
 def api_pending_alarms():
     return jsonify(get_pending_alarms())
 
-@app.route("/api/alarms/clear", methods=["POST"])
+@app.route("/api/alarms/clear", methods=["GET", "POST"])
 def api_clear_alarms():
     save_pending_alarms([])
     return jsonify({"status": "success", "message": "Pending alarms cleared"})
+
 
 
 @app.route("/parse-timetable", methods=["POST"])
