@@ -47,7 +47,7 @@ PARSE_TIMETABLE_TOOL = {
     "type": "function",
     "function": {
         "name": "parsed_timetable",
-        "description": "Extract structured timetable slots from the image",
+        "description": "Extract structured timetable slots and exam schedules from the image",
         "parameters": {
             "type": "object",
             "properties": {
@@ -70,9 +70,25 @@ PARSE_TIMETABLE_TOOL = {
                         },
                         "required": ["course_code", "class_type", "day_of_week", "start_time", "end_time", "location", "weeks"]
                     }
+                },
+                "exams": {
+                    "type": "array",
+                    "description": "List of exams extracted from the timetable legend/labels",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "course_code": {"type": "string", "description": "e.g., BN2204"},
+                            "course_name": {"type": "string", "description": "e.g., Fundamentals of Biomechanics"},
+                            "date": {"type": "string", "description": "Format: DD-MMM-YYYY, e.g., 25-Apr-2026. Use null or empty string if 'No Exam'"},
+                            "time": {"type": "string", "description": "Format: h:mm A or HH:MM, e.g., 9:00 AM, 1:00 PM. Use null or empty string if 'No Exam'"},
+                            "duration_hours": {"type": "number", "description": "Duration in hours, e.g., 2. Use null or empty if 'No Exam'"},
+                            "has_exam": {"type": "boolean", "description": "true if the course has an exam, false if No Exam"}
+                        },
+                        "required": ["course_code", "course_name", "has_exam"]
+                    }
                 }
             },
-            "required": ["slots"]
+            "required": ["slots", "exams"]
         }
     }
 }
@@ -135,7 +151,7 @@ def parse_timetable():
                     "content": [
                         {
                             "type": "text",
-                            "text": "Extract all course timetable slots and map them to their corresponding full names from the legend/labels in the screenshot. Return the structured slots data."
+                            "text": "Extract all weekly course timetable slots from the grid, and map them to their corresponding full names and exam schedules from the legend/labels in the screenshot."
                         },
                         {
                             "type": "image_url",

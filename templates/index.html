@@ -318,6 +318,24 @@
             </tbody>
           </table>
         </div>
+
+        <div class="preview-header" style="margin-top: 20px;">Detected Exams</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Exam Date</th>
+                <th>Time</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="examsPreviewBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
         <button id="generateCalendarBtn" class="generate-btn">Generate & Download ICS Calendar</button>
       </div>
     </div>
@@ -325,6 +343,7 @@
 
   <script>
     let parsedSlots = [];
+    let parsedExams = [];
 
     // Set default startDate to the next Monday
     const today = new Date();
@@ -504,9 +523,10 @@
           throw new Error(data.error || 'Failed to parse image');
         }
 
-        parsedSlots = data.slots || [];
-        if (parsedSlots.length === 0) {
-          throw new Error('No classes detected in the timetable.');
+         parsedSlots = data.slots || [];
+        parsedExams = data.exams || [];
+        if (parsedSlots.length === 0 && parsedExams.length === 0) {
+          throw new Error('No classes or exams detected in the timetable.');
         }
 
         // Render preview table
@@ -524,8 +544,35 @@
           previewBody.appendChild(tr);
         });
 
+        // Render exams preview table
+        const examsPreviewBody = document.getElementById('examsPreviewBody');
+        examsPreviewBody.innerHTML = '';
+        if (parsedExams.length === 0) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td colspan="4" style="text-align: center; color: var(--text-muted);">No Exams detected.</td>';
+          examsPreviewBody.appendChild(tr);
+        } else {
+          parsedExams.forEach(exam => {
+            const tr = document.createElement('tr');
+            if (exam.has_exam) {
+              tr.innerHTML = `
+                <td><strong>${exam.course_code}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${exam.course_name || ''}</span></td>
+                <td>${exam.date}</td>
+                <td>${exam.time}</td>
+                <td>${exam.duration_hours ? exam.duration_hours + ' hrs' : ''}</td>
+              `;
+            } else {
+              tr.innerHTML = `
+                <td><strong>${exam.course_code}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${exam.course_name || ''}</span></td>
+                <td colspan="3" style="color: var(--text-muted); font-style: italic;">No Exam</td>
+              `;
+            }
+            examsPreviewBody.appendChild(tr);
+          });
+        }
+
         timetableStatus.className = 'status success';
-        timetableStatus.textContent = `Successfully parsed ${parsedSlots.length} class slot(s). Adjust dates below if needed and generate your calendar!`;
+        timetableStatus.textContent = `Successfully parsed ${parsedSlots.length} class(es) and ${parsedExams.filter(e => e.has_exam).length} exam(s). Adjust dates below if needed and generate your calendar!`;
         previewSection.style.display = 'block';
 
       } catch (err) {
@@ -570,6 +617,44 @@
 
     const DAY_OFFSETS = { 'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4, 'SAT': 5, 'SUN': 6 };
 
+    function formatDateToICSAllDay(dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    }
+
+    function parseExamDateTime(dateStr, timeStr) {
+      if (!dateStr || !timeStr) return null;
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+      };
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return null;
+      const day = parseInt(parts[0], 10);
+      const monthName = parts[1].toLowerCase().substring(0, 3);
+      const month = months[monthName];
+      const year = parseInt(parts[2], 10);
+
+      const timeParts = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!timeParts) return null;
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const ampm = timeParts[3].toUpperCase();
+
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+
+      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const hourStr = String(hours).padStart(2, '0');
+      const minStr = String(minutes).padStart(2, '0');
+      return `${year}-${monthStr}-${dayStr}T${hourStr}:${minStr}:00+08:00`;
+    }
+
+
+
     // Calendar generation click handler
     generateCalendarBtn.addEventListener('click', () => {
       const startDateInput = document.getElementById('startDate').value;
@@ -583,6 +668,7 @@
 
       const events = [];
 
+      // 1. Populate Class Events
       parsedSlots.forEach(slot => {
         const activeWeeks = parseWeeks(slot.weeks);
         const dayOffset = DAY_OFFSETS[slot.day_of_week] ?? 0;
@@ -617,6 +703,58 @@
         });
       });
 
+      // 2. Add Recess Week
+      if (hasRecessWeek) {
+        const recessStart = new Date(baseMonday);
+        recessStart.setDate(baseMonday.getDate() + 6 * 7);
+        const recessEnd = new Date(baseMonday);
+        recessEnd.setDate(baseMonday.getDate() + 7 * 7);
+
+        events.push({
+          title: 'Recess Week',
+          allDay: true,
+          start: recessStart,
+          end: recessEnd,
+          notes: 'Mid-semester Recess Week'
+        });
+      }
+
+      // 3. Add Reading Week (after week 13)
+      const readingWeekStartOffset = hasRecessWeek ? 14 : 13;
+      const readingWeekStart = new Date(baseMonday);
+      readingWeekStart.setDate(baseMonday.getDate() + readingWeekStartOffset * 7);
+      const readingWeekEnd = new Date(readingWeekStart);
+      readingWeekEnd.setDate(readingWeekStart.getDate() + 7);
+
+      events.push({
+        title: 'Reading Week',
+        allDay: true,
+        start: readingWeekStart,
+        end: readingWeekEnd,
+        notes: 'Pre-examination Reading Week'
+      });
+
+      // 4. Add Exam Events
+      parsedExams.forEach(exam => {
+        if (exam.has_exam && exam.date && exam.time) {
+          const startStr = parseExamDateTime(exam.date, exam.time);
+          if (startStr) {
+            const startDate = new Date(startStr);
+            const duration = exam.duration_hours || 2;
+            const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
+            const endStr = endDate.toISOString().replace(/Z$/, '+08:00');
+
+            events.push({
+              title: `${exam.course_code} Exam`,
+              start: startStr,
+              end: endStr,
+              location: 'See student portal / venue details',
+              notes: `${exam.course_name || ''}\nDuration: ${duration} hours`
+            });
+          }
+        }
+      });
+
       if (events.length === 0) {
         alert('No events to generate.');
         return;
@@ -632,19 +770,34 @@
       const created = formatDateToICS(new Date());
 
       events.forEach((evt, idx) => {
-        const start = formatDateToICS(new Date(evt.start));
-        const end = formatDateToICS(new Date(evt.end));
-        icsLines.push(
-          'BEGIN:VEVENT',
-          `UID:${Date.now()}-${idx}@calendaragent`,
-          `DTSTAMP:${created}`,
-          `DTSTART:${start}`,
-          `DTEND:${end}`,
-          `SUMMARY:${evt.title}`,
-          `DESCRIPTION:${evt.notes || ''}`,
-          `LOCATION:${evt.location || ''}`,
-          'END:VEVENT'
-        );
+        if (evt.allDay) {
+          const start = formatDateToICSAllDay(evt.start);
+          const end = formatDateToICSAllDay(evt.end);
+          icsLines.push(
+            'BEGIN:VEVENT',
+            `UID:${Date.now()}-${idx}@calendaragent`,
+            `DTSTAMP:${created}`,
+            `DTSTART;VALUE=DATE:${start}`,
+            `DTEND;VALUE=DATE:${end}`,
+            `SUMMARY:${evt.title}`,
+            `DESCRIPTION:${evt.notes || ''}`,
+            'END:VEVENT'
+          );
+        } else {
+          const start = formatDateToICS(new Date(evt.start));
+          const end = formatDateToICS(new Date(evt.end));
+          icsLines.push(
+            'BEGIN:VEVENT',
+            `UID:${Date.now()}-${idx}@calendaragent`,
+            `DTSTAMP:${created}`,
+            `DTSTART:${start}`,
+            `DTEND:${end}`,
+            `SUMMARY:${evt.title}`,
+            `DESCRIPTION:${evt.notes || ''}`,
+            `LOCATION:${evt.location || ''}`,
+            'END:VEVENT'
+          );
+        }
       });
 
       icsLines.push('END:VCALENDAR');
