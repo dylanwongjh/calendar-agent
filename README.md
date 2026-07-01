@@ -1,3 +1,13 @@
+---
+title: Calendar Agent
+emoji: 📅
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Calendar Agent Backend
 
 Parses natural-language event text into structured JSON for the "Add Event" iOS Shortcut.
