@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calendar Agent</title>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0d0e12;
@@ -14,6 +14,8 @@
       --text-muted: #9ca3af;
       --accent: #6366f1;
       --accent-hover: #4f46e5;
+      --accent-success: #10b981;
+      --accent-success-hover: #059669;
     }
     * {
       box-sizing: border-box;
@@ -32,7 +34,7 @@
     }
     .container {
       width: 100%;
-      max-width: 440px;
+      max-width: 600px;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 24px;
@@ -41,18 +43,54 @@
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     }
     h1 {
-      font-size: 24px;
-      font-weight: 600;
+      font-size: 28px;
+      font-weight: 700;
       margin-bottom: 8px;
       background: linear-gradient(to right, #a5b4fc, #818cf8);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      text-align: center;
     }
-    p {
+    .subtitle {
       color: var(--text-muted);
       font-size: 14px;
       margin-bottom: 24px;
+      text-align: center;
     }
+    /* Tabs styling */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 6px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      border: 1px solid var(--card-border);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 0;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    /* Common Inputs */
     textarea {
       width: 100%;
       height: 120px;
@@ -70,6 +108,73 @@
     textarea:focus {
       border-color: var(--accent);
     }
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--card-border);
+      border-radius: 16px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.01);
+      transition: all 0.2s ease;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+    }
+    .upload-zone img {
+      max-width: 100%;
+      max-height: 150px;
+      border-radius: 8px;
+      margin-top: 12px;
+      display: none;
+    }
+    .upload-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+    /* Form Group Row */
+    .form-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .form-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-group input[type="date"] {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: var(--text);
+      padding: 12px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    .checkbox-group {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .checkbox-group input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    /* Buttons */
     button {
       width: 100%;
       background: var(--accent);
@@ -78,9 +183,9 @@
       border-radius: 16px;
       padding: 16px;
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      margin-top: 16px;
+      margin-top: 20px;
       transition: background 0.2s, transform 0.1s;
     }
     button:hover {
@@ -88,6 +193,12 @@
     }
     button:active {
       transform: scale(0.98);
+    }
+    button:disabled {
+      background: var(--card-border);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
     }
     .status {
       margin-top: 16px;
@@ -97,32 +208,154 @@
     }
     .status.error { color: #f87171; }
     .status.success { color: #34d399; }
+
+    /* Timetable Preview Table */
+    .preview-section {
+      margin-top: 24px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 24px;
+      display: none;
+    }
+    .preview-header {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .table-wrapper {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.05);
+      font-weight: 600;
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .generate-btn {
+      background: var(--accent-success);
+    }
+    .generate-btn:hover {
+      background: var(--accent-success-hover);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Calendar Agent</h1>
-    <p>Type your event in natural language. We'll parse it and add it directly to your calendar.</p>
-    
-    <textarea id="eventInput" placeholder="e.g. Basketball Practice 830-1030pm 7th July" required></textarea>
-    <button id="submitBtn">Create Event</button>
-    <div id="statusMsg" class="status"></div>
+    <p class="subtitle">Smart scheduling made completely effortless.</p>
+
+    <!-- Tabs Header -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('single')">Single Event</button>
+      <button class="tab-btn" onclick="switchTab('timetable')">Import Timetable</button>
+    </div>
+
+    <!-- Tab 1: Single Event -->
+    <div id="tab-single" class="tab-content active">
+      <textarea id="eventInput" placeholder="e.g. Basketball Practice 830-1030pm 7th July" required></textarea>
+      <button id="submitBtn">Create Event</button>
+      <div id="statusMsg" class="status"></div>
+    </div>
+
+    <!-- Tab 2: Timetable Upload -->
+    <div id="tab-timetable" class="tab-content">
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📅</div>
+        <p>Click or drag your timetable screenshot here to upload</p>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        <img id="imagePreview" alt="Timetable preview">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="startDate">Semester Week 1 Monday</label>
+          <input type="date" id="startDate" required>
+        </div>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="hasRecessWeek" checked>
+        <label for="hasRecessWeek">Has recess week after Week 6 (standard for NUS/NTU)</label>
+      </div>
+
+      <button id="parseBtn">Upload & Parse Timetable</button>
+      <div id="timetableStatus" class="status"></div>
+
+      <!-- Preview parsed classes -->
+      <div class="preview-section" id="previewSection">
+        <div class="preview-header">Detected Classes</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Type</th>
+                <th>Day</th>
+                <th>Time</th>
+                <th>Weeks</th>
+                <th>Venue</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <button id="generateCalendarBtn" class="generate-btn">Generate & Download ICS Calendar</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    const eventInput = document.getElementById('eventInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const statusMsg = document.getElementById('statusMsg');
+    let parsedSlots = [];
 
-    function formatDateToICS(isoString) {
-      const date = new Date(isoString);
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    // Set default startDate to the next Monday
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilNextMonday = (1 + 7 - dayOfWeek) % 7 || 7;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+    document.getElementById('startDate').value = nextMonday.toISOString().split('T')[0];
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      if (tabId === 'single') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-single').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-timetable').classList.add('active');
+      }
+    }
+
+    // Helper functions for date & ICS formatting
+    function formatDateToICS(dateObj) {
+      return dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     }
 
     function generateICS(event) {
-      const start = formatDateToICS(event.start);
-      const end = formatDateToICS(event.end);
-      const created = formatDateToICS(new Date().toISOString());
+      const start = formatDateToICS(new Date(event.start));
+      const end = formatDateToICS(new Date(event.end));
+      const created = formatDateToICS(new Date());
 
       return [
         'BEGIN:VCALENDAR',
@@ -140,6 +373,11 @@
         'END:VCALENDAR'
       ].join('\r\n');
     }
+
+    // Single Event Parsing
+    const eventInput = document.getElementById('eventInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusMsg = document.getElementById('statusMsg');
 
     submitBtn.addEventListener('click', async () => {
       const text = eventInput.value.trim();
@@ -188,6 +426,237 @@
       } finally {
         submitBtn.disabled = false;
       }
+    });
+
+    // Timetable Screenshot upload handling
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const parseBtn = document.getElementById('parseBtn');
+    const timetableStatus = document.getElementById('timetableStatus');
+    const previewSection = document.getElementById('previewSection');
+    const previewBody = document.getElementById('previewBody');
+    const generateCalendarBtn = document.getElementById('generateCalendarBtn');
+
+    let base64Image = null;
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        base64Image = e.target.result;
+        imagePreview.src = base64Image;
+        imagePreview.style.display = 'block';
+        uploadZone.querySelector('.upload-icon').style.display = 'none';
+        uploadZone.querySelector('p').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    parseBtn.addEventListener('click', async () => {
+      if (!base64Image) {
+        alert('Please upload a timetable screenshot first.');
+        return;
+      }
+
+      parseBtn.disabled = true;
+      timetableStatus.className = 'status';
+      timetableStatus.textContent = 'Parsing timetable image... (This can take 10-15 seconds)';
+      previewSection.style.display = 'none';
+
+      try {
+        const response = await fetch('/parse-timetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to parse image');
+        }
+
+        parsedSlots = data.slots || [];
+        if (parsedSlots.length === 0) {
+          throw new Error('No classes detected in the timetable.');
+        }
+
+        // Render preview table
+        previewBody.innerHTML = '';
+        parsedSlots.forEach(slot => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${slot.course_code}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${slot.course_name || ''}</span></td>
+            <td>${slot.class_type}</td>
+            <td>${slot.day_of_week}</td>
+            <td>${slot.start_time} - ${slot.end_time}</td>
+            <td>${slot.weeks}</td>
+            <td>${slot.location}</td>
+          `;
+          previewBody.appendChild(tr);
+        });
+
+        timetableStatus.className = 'status success';
+        timetableStatus.textContent = `Successfully parsed ${parsedSlots.length} class slot(s). Adjust dates below if needed and generate your calendar!`;
+        previewSection.style.display = 'block';
+
+      } catch (err) {
+        timetableStatus.className = 'status error';
+        timetableStatus.textContent = err.message;
+      } finally {
+        parseBtn.disabled = false;
+      }
+    });
+
+    // Weekly parser helper
+    function parseWeeks(weeksStr) {
+      const weeks = [];
+      const clean = weeksStr.toLowerCase().replace(/weeks?/g, '').trim();
+      if (!clean || clean.includes('all') || clean.includes('every')) {
+        for (let i = 1; i <= 13; i++) weeks.push(i);
+        return weeks;
+      }
+      
+      const parts = clean.split(',');
+      for (const part of parts) {
+        const range = part.trim().split('-');
+        if (range.length === 2) {
+          const start = parseInt(range[0], 10);
+          const end = parseInt(range[1], 10);
+          for (let i = start; i <= end; i++) {
+            weeks.push(i);
+          }
+        } else {
+          const w = parseInt(part.trim(), 10);
+          if (!isNaN(w)) {
+            weeks.push(w);
+          }
+        }
+      }
+      
+      if (weeks.length === 0) {
+        for (let i = 1; i <= 13; i++) weeks.push(i);
+      }
+      return weeks;
+    }
+
+    const DAY_OFFSETS = { 'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4, 'SAT': 5, 'SUN': 6 };
+
+    // Calendar generation click handler
+    generateCalendarBtn.addEventListener('click', () => {
+      const startDateInput = document.getElementById('startDate').value;
+      if (!startDateInput) {
+        alert('Please specify the Week 1 Monday start date.');
+        return;
+      }
+
+      const baseMonday = new Date(startDateInput + 'T00:00:00');
+      const hasRecessWeek = document.getElementById('hasRecessWeek').checked;
+
+      const events = [];
+
+      parsedSlots.forEach(slot => {
+        const activeWeeks = parseWeeks(slot.weeks);
+        const dayOffset = DAY_OFFSETS[slot.day_of_week] ?? 0;
+
+        activeWeeks.forEach(w => {
+          // Adjust weeks depending on whether recess week exists after week 6
+          let weekOffset = w - 1;
+          if (hasRecessWeek && w >= 7) {
+            weekOffset += 1; // shift week 7-13 forward by 1 calendar week
+          }
+
+          // Calculate start and end date objects
+          const eventDate = new Date(baseMonday);
+          eventDate.setDate(baseMonday.getDate() + (weekOffset * 7) + dayOffset);
+
+          const dateStr = eventDate.toISOString().split('T')[0];
+          
+          // Build ISO timezone string for SGT (+08:00)
+          const startStr = `${dateStr}T${slot.start_time}:00+08:00`;
+          const endStr = `${dateStr}T${slot.end_time}:00+08:00`;
+
+          const eventTitle = `${slot.course_code} ${slot.class_type}`;
+          const eventNotes = `${slot.course_name || ''}\nWeeks: ${slot.weeks}`;
+
+          events.push({
+            title: eventTitle,
+            start: startStr,
+            end: endStr,
+            location: slot.location,
+            notes: eventNotes
+          });
+        });
+      });
+
+      if (events.length === 0) {
+        alert('No events to generate.');
+        return;
+      }
+
+      // Generate single multi-event ICS file
+      const icsLines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Calendar Agent//EN'
+      ];
+      
+      const created = formatDateToICS(new Date());
+
+      events.forEach((evt, idx) => {
+        const start = formatDateToICS(new Date(evt.start));
+        const end = formatDateToICS(new Date(evt.end));
+        icsLines.push(
+          'BEGIN:VEVENT',
+          `UID:${Date.now()}-${idx}@calendaragent`,
+          `DTSTAMP:${created}`,
+          `DTSTART:${start}`,
+          `DTEND:${end}`,
+          `SUMMARY:${evt.title}`,
+          `DESCRIPTION:${evt.notes || ''}`,
+          `LOCATION:${evt.location || ''}`,
+          'END:VEVENT'
+        );
+      });
+
+      icsLines.push('END:VCALENDAR');
+      const finalIcs = icsLines.join('\r\n');
+
+      const blob = new Blob([finalIcs], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `academic_timetable.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     });
   </script>
 </body>
