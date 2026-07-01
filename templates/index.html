@@ -567,6 +567,14 @@
       const isAllDay = event.all_day || (isDateOnly(event.start) && isDateOnly(event.end));
       const uid = event.uid || `${Date.now()}@calendaragent`;
 
+      const alarmLines = (event.alert_minutes !== null && event.alert_minutes !== undefined) ? [
+        'BEGIN:VALARM',
+        `TRIGGER:-PT${event.alert_minutes}M`,
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Reminder',
+        'END:VALARM'
+      ] : [];
+
       if (isAllDay) {
         const parseDate = (str) => {
           const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -596,6 +604,7 @@
           `SUMMARY:${event.title}`,
           `DESCRIPTION:${event.notes || ''}`,
           `LOCATION:${event.location || ''}`,
+          ...alarmLines,
           'END:VEVENT',
           'END:VCALENDAR'
         ].join('\r\n');
@@ -616,6 +625,7 @@
         `SUMMARY:${event.title}`,
         `DESCRIPTION:${event.notes || ''}`,
         `LOCATION:${event.location || ''}`,
+        ...alarmLines,
         'END:VEVENT',
         'END:VCALENDAR'
       ].join('\r\n');
@@ -708,7 +718,8 @@
             end: args.end,
             location: args.location || '',
             notes: args.notes || '',
-            all_day: args.all_day || false
+            all_day: args.all_day || false,
+            alert_minutes: args.alert_minutes !== undefined ? args.alert_minutes : null
           };
 
           const icsContent = generateICS(newEvent);

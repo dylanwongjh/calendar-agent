@@ -35,6 +35,7 @@ CREATE_EVENT_TOOL = {
                 "end": {"type": "string", "description": "ISO 8601 datetime with timezone offset"},
                 "location": {"type": "string"},
                 "notes": {"type": "string"},
+                "alert_minutes": {"type": "integer", "description": "Minutes before start time to set an alert/reminder (optional)"},
                 "needs_clarification": {"type": "boolean"},
                 "clarification_question": {"type": "string"}
             },
@@ -126,6 +127,8 @@ For event creation:
 - If only a start time is given with no duration, default to a 1-hour event.
 - For relative dates ("next Tuesday", "this Friday"), compute precisely from the current date given above — never guess.
 - Keep titles concise; move extra detail into the notes field.
+- Parse any explicit alerts/reminders requested by the user (e.g. "remind me 15m before", "alert 1 hour before") into alert_minutes (integer value in minutes).
+- If the user uses keywords indicating importance or urgency (e.g. "important", "urgent", "critical", "must attend") but DOES NOT specify any reminder time, set needs_clarification=true and ask: "This event seems important. Would you like to set a reminder? If so, when (e.g., 15 minutes before, 1 hour before)?"
 
 For event deletion/removal:
 - Call delete_event.
