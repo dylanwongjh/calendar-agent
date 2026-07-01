@@ -100,6 +100,8 @@ Extract event details from the user's message and call create_event. You MUST ca
 
 Rules:
 - Always assume Asia/Singapore timezone unless stated otherwise; output start/end as ISO 8601 with +08:00 offset.
+- For all-day or multi-day events with no specific times (e.g., "Leadership Camp from 5th to 7th July"), set all_day=true, and set start/end to 'YYYY-MM-DD' representing the start and end dates (inclusive as described by the user).
+- For multi-day events with specific times (e.g., "Training course from July 10 9am to July 12 5pm"), set start and end to the respective dates and times as ISO 8601.
 - If no year is given, assume the current year, or next year if that date has already passed this year.
 - Interpret bare times like "830" using context: an evening activity or PM cue means 8:30 PM; if genuinely ambiguous, set needs_clarification=true and ask rather than guessing.
 - If only a start time is given with no duration, default to a 1-hour event.

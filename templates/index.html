@@ -372,9 +372,47 @@
     }
 
     function generateICS(event) {
+      const created = formatDateToICS(new Date());
+
+      const isDateOnly = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
+      const isAllDay = event.all_day || (isDateOnly(event.start) && isDateOnly(event.end));
+
+      if (isAllDay) {
+        const parseDate = (str) => {
+          const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) {
+            return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+          }
+          return new Date(str);
+        };
+        const startDate = parseDate(event.start);
+        const endDate = parseDate(event.end);
+        
+        // iCalendar DTEND is exclusive for all-day events, so add 1 day to endDate
+        endDate.setDate(endDate.getDate() + 1);
+
+        const start = formatDateToICSAllDay(startDate);
+        const end = formatDateToICSAllDay(endDate);
+
+        return [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//Calendar Agent//EN',
+          'BEGIN:VEVENT',
+          `UID:${Date.now()}@calendaragent`,
+          `DTSTAMP:${created}`,
+          `DTSTART;VALUE=DATE:${start}`,
+          `DTEND;VALUE=DATE:${end}`,
+          `SUMMARY:${event.title}`,
+          `DESCRIPTION:${event.notes || ''}`,
+          `LOCATION:${event.location || ''}`,
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+      }
+
       const start = formatDateToICS(new Date(event.start));
       const end = formatDateToICS(new Date(event.end));
-      const created = formatDateToICS(new Date());
 
       return [
         'BEGIN:VCALENDAR',
