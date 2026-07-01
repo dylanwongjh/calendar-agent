@@ -742,7 +742,7 @@
               `- <span style="color: var(--text-muted);">Apple Calendar:</span> Tap the downloaded .ics file.<br>` +
               `- <span style="color: var(--text-muted);">Google Calendar:</span> <a href="${gCalUrl}" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Add to Google Calendar</a><br><br>`;
           } else if (action === 'create_alarm') {
-            successHTML += `⏰ **Alarm Queued:** set for <strong>${args.time}</strong> (Label: "${args.label}"). This will sync to your iPhone Clock automatically when you close the app.<br><br>`;
+            successHTML += `⏰ **Alarm Queued:** set for <strong>${args.time}</strong> (Label: "${args.label}"). This will sync to your phone's Clock automatically when you close the app.<br><br>`;
           } else if (action === 'delete_event') {
             const titleToCancel = args.title.toLowerCase();
             const currentEvents = getStoredEvents();
