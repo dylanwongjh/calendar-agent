@@ -396,6 +396,14 @@
         </div>
 
         <button id="generateCalendarBtn" class="generate-btn">Generate & Download ICS Calendar</button>
+
+        <div style="margin-top: 16px; background: rgba(56, 189, 248, 0.08); border: 1px dashed var(--accent); padding: 16px; border-radius: 12px; font-size: 13px; line-height: 1.5;">
+          <strong style="color: var(--accent); display: block; margin-bottom: 6px;">Android / Google Calendar User Guide:</strong>
+          1. Click "Generate & Download ICS Calendar" to download the file.<br>
+          2. Open <a href="https://calendar.google.com" target="_blank" style="color: var(--accent); text-decoration: underline;">Google Calendar Web</a> on your computer.<br>
+          3. Go to <strong>Settings (gear icon) &gt; Import &amp; export</strong>.<br>
+          4. Select the downloaded `.ics` file, choose your calendar, and click <strong>Import</strong>.
+        </div>
       </div>
     </div>
   </div>
@@ -453,11 +461,17 @@
         const tr = document.createElement('tr');
         const dateObj = new Date(evt.start);
         const formattedDate = isNaN(dateObj.getTime()) ? evt.start : dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        const gCalUrl = generateGoogleCalendarUrl(evt);
         tr.innerHTML = `
           <td><strong>${evt.title}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${evt.notes || ''}</span></td>
           <td>${formattedDate}</td>
           <td>${evt.location || 'N/A'}</td>
-          <td><button class="delete-btn" onclick="deleteEventById('${evt.uid}')">Delete</button></td>
+          <td>
+            <div style="display: flex; flex-direction: column; gap: 6px; align-items: stretch;">
+              <a href="${gCalUrl}" target="_blank" class="tab-btn" style="text-align: center; background: var(--accent-success); color: #fff; padding: 6px 12px; font-size: 11px; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 0; box-shadow: 0 0 8px rgba(13, 148, 136, 0.2);">Add to Google</a>
+              <button class="delete-btn" onclick="deleteEventById('${evt.uid}')" style="margin-top: 0; width: 100%;">Delete</button>
+            </div>
+          </td>
         `;
         tbody.appendChild(tr);
       });
@@ -607,6 +621,43 @@
       ].join('\r\n');
     }
 
+    function generateGoogleCalendarUrl(event) {
+      const isDateOnly = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
+      const isAllDay = event.all_day || (isDateOnly(event.start) && isDateOnly(event.end));
+      
+      let datesParam = '';
+      if (isAllDay) {
+        const parseDate = (str) => {
+          const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+          return new Date(str);
+        };
+        const startDate = parseDate(event.start);
+        const endDate = parseDate(event.end);
+        endDate.setDate(endDate.getDate() + 1);
+
+        const start = formatDateToICSAllDay(startDate);
+        const end = formatDateToICSAllDay(endDate);
+        datesParam = `${start}/${end}`;
+      } else {
+        const formatToUTCString = (dateObj) => {
+          return dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+        const start = formatToUTCString(new Date(event.start));
+        const end = formatToUTCString(new Date(event.end));
+        datesParam = `${start}/${end}`;
+      }
+
+      const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+      const params = [
+        `text=${encodeURIComponent(event.title)}`,
+        `dates=${datesParam}`,
+        `details=${encodeURIComponent(event.notes || '')}`,
+        `location=${encodeURIComponent(event.location || '')}`
+      ];
+      return `${baseUrl}&${params.join('&')}`;
+    }
+
     // Initialize list
     renderSavedEvents();
 
@@ -674,7 +725,10 @@
           currentEvents.push(newEvent);
           saveStoredEvents(currentEvents);
 
-          statusMsg.textContent = `Successfully created event "${args.title}"! Tap the downloaded file to add to calendar.`;
+          const gCalUrl = generateGoogleCalendarUrl(newEvent);
+          statusMsg.innerHTML = `Successfully created event "${args.title}"!<br>` +
+            `1. <span style="color: var(--text-muted);">Local Apple Calendar:</span> Tap the downloaded .ics file.<br>` +
+            `2. <span style="color: var(--text-muted);">Google Calendar:</span> <a href="${gCalUrl}" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Add to Google Calendar</a>`;
           eventInput.value = '';
         } else if (action === 'delete_event') {
           statusMsg.className = 'status success';
