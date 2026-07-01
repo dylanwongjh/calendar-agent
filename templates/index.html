@@ -254,6 +254,17 @@
     .generate-btn:hover {
       background: var(--accent-success-hover);
     }
+    .delete-btn {
+      background: #ef4444;
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+      margin-top: 0;
+      width: auto;
+    }
+    .delete-btn:hover {
+      background: #dc2626;
+    }
   </style>
 </head>
 <body>
@@ -269,9 +280,29 @@
 
     <!-- Tab 1: Single Event -->
     <div id="tab-single" class="tab-content active">
-      <textarea id="eventInput" placeholder="e.g. Basketball Practice 830-1030pm 7th July" required></textarea>
-      <button id="submitBtn">Create Event</button>
+      <textarea id="eventInput" placeholder="e.g. Basketball Practice 830-1030pm 7th July (or ask to remove/cancel an event)" required></textarea>
+      <button id="submitBtn">Submit Command</button>
       <div id="statusMsg" class="status"></div>
+
+      <!-- Saved Events Section -->
+      <div class="preview-section" id="savedEventsSection" style="display: block; margin-top: 24px; border-top: 1px solid var(--card-border); padding-top: 24px;">
+        <div class="preview-header">My Scheduled Events</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Date & Time</th>
+                <th>Location</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="savedEventsBody">
+              <!-- Dynamically populated from localStorage -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Tab 2: Timetable Upload -->
@@ -371,11 +402,128 @@
       return dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     }
 
+    // Stored events logic
+    function getStoredEvents() {
+      const stored = localStorage.getItem('agent_events');
+      return stored ? JSON.parse(stored) : [];
+    }
+
+    function saveStoredEvents(events) {
+      localStorage.setItem('agent_events', JSON.stringify(events));
+      renderSavedEvents();
+    }
+
+    function renderSavedEvents() {
+      const tbody = document.getElementById('savedEventsBody');
+      const events = getStoredEvents();
+      tbody.innerHTML = '';
+      if (events.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No scheduled events.</td></tr>';
+        return;
+      }
+      events.forEach(evt => {
+        const tr = document.createElement('tr');
+        const dateObj = new Date(evt.start);
+        const formattedDate = isNaN(dateObj.getTime()) ? evt.start : dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        tr.innerHTML = `
+          <td><strong>${evt.title}</strong><br><span style="font-size: 11px; color: var(--text-muted);">${evt.notes || ''}</span></td>
+          <td>${formattedDate}</td>
+          <td>${evt.location || 'N/A'}</td>
+          <td><button class="delete-btn" onclick="deleteEventById('${evt.uid}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function deleteEventById(uid) {
+      let events = getStoredEvents();
+      const matchIndex = events.findIndex(e => e.uid === uid);
+      if (matchIndex === -1) return;
+      const matchedEvent = events[matchIndex];
+      
+      // Download cancellation ICS
+      const cancelContent = generateCancelICS(matchedEvent);
+      const blob = new Blob([cancelContent], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `cancel_${matchedEvent.title.replace(/\s+/g, '_') || 'event'}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Remove from list
+      events.splice(matchIndex, 1);
+      saveStoredEvents(events);
+
+      alert(`Event "${matchedEvent.title}" has been deleted. Tap the downloaded cancellation file to remove it from your calendar.`);
+    }
+
+    window.deleteEventById = deleteEventById; // Expose to global scope for inline onclick
+
+    function generateCancelICS(event) {
+      const created = formatDateToICS(new Date());
+      const uid = event.uid;
+      const isDateOnly = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
+      const isAllDay = event.all_day || (isDateOnly(event.start) && isDateOnly(event.end));
+
+      if (isAllDay) {
+        const parseDate = (str) => {
+          const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+          return new Date(str);
+        };
+        const startDate = parseDate(event.start);
+        const endDate = parseDate(event.end);
+        endDate.setDate(endDate.getDate() + 1);
+
+        const start = formatDateToICSAllDay(startDate);
+        const end = formatDateToICSAllDay(endDate);
+
+        return [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'METHOD:CANCEL',
+          'PRODID:-//Calendar Agent//EN',
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${created}`,
+          `SEQUENCE:1`,
+          `STATUS:CANCELLED`,
+          `DTSTART;VALUE=DATE:${start}`,
+          `DTEND;VALUE=DATE:${end}`,
+          `SUMMARY:${event.title}`,
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+      }
+
+      const start = formatDateToICS(new Date(event.start));
+      const end = formatDateToICS(new Date(event.end));
+
+      return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'METHOD:CANCEL',
+        'PRODID:-//Calendar Agent//EN',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${created}`,
+        `SEQUENCE:1`,
+        `STATUS:CANCELLED`,
+        `DTSTART:${start}`,
+        `DTEND:${end}`,
+        `SUMMARY:${event.title}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+    }
+
     function generateICS(event) {
       const created = formatDateToICS(new Date());
 
       const isDateOnly = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
       const isAllDay = event.all_day || (isDateOnly(event.start) && isDateOnly(event.end));
+      const uid = event.uid || `${Date.now()}@calendaragent`;
 
       if (isAllDay) {
         const parseDate = (str) => {
@@ -399,7 +547,7 @@
           'VERSION:2.0',
           'PRODID:-//Calendar Agent//EN',
           'BEGIN:VEVENT',
-          `UID:${Date.now()}@calendaragent`,
+          `UID:${uid}`,
           `DTSTAMP:${created}`,
           `DTSTART;VALUE=DATE:${start}`,
           `DTEND;VALUE=DATE:${end}`,
@@ -419,7 +567,7 @@
         'VERSION:2.0',
         'PRODID:-//Calendar Agent//EN',
         'BEGIN:VEVENT',
-        `UID:${Date.now()}@calendaragent`,
+        `UID:${uid}`,
         `DTSTAMP:${created}`,
         `DTSTART:${start}`,
         `DTEND:${end}`,
@@ -430,6 +578,9 @@
         'END:VCALENDAR'
       ].join('\r\n');
     }
+
+    // Initialize list
+    renderSavedEvents();
 
     // Single Event Parsing
     const eventInput = document.getElementById('eventInput');
@@ -442,7 +593,7 @@
 
       submitBtn.disabled = true;
       statusMsg.className = 'status';
-      statusMsg.textContent = 'Parsing event...';
+      statusMsg.textContent = 'Parsing command...';
 
       try {
         const response = await fetch('/parse-event', {
@@ -456,27 +607,77 @@
           throw new Error(data.error || 'Failed to parse');
         }
 
-        if (data.needs_clarification) {
+        const action = data.action;
+        const args = data.args || {};
+
+        if (args.needs_clarification) {
           statusMsg.className = 'status error';
-          statusMsg.textContent = `Clarification: ${data.clarification_question}`;
+          statusMsg.textContent = `Clarification: ${args.clarification_question}`;
           submitBtn.disabled = false;
           return;
         }
 
-        statusMsg.className = 'status success';
-        statusMsg.textContent = 'Creating .ics file...';
+        if (action === 'create_event') {
+          statusMsg.className = 'status success';
+          statusMsg.textContent = 'Creating .ics file...';
 
-        const icsContent = generateICS(data);
-        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${data.title.replace(/\s+/g, '_') || 'event'}.ics`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+          const uid = `${Date.now()}@calendaragent`;
+          const newEvent = {
+            uid: uid,
+            title: args.title,
+            start: args.start,
+            end: args.end,
+            location: args.location || '',
+            notes: args.notes || '',
+            all_day: args.all_day || false
+          };
 
-        statusMsg.textContent = 'Done! Tap the downloaded file to add to calendar.';
-        eventInput.value = '';
+          const icsContent = generateICS(newEvent);
+          const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `${args.title.replace(/\s+/g, '_') || 'event'}.ics`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Save event
+          const currentEvents = getStoredEvents();
+          currentEvents.push(newEvent);
+          saveStoredEvents(currentEvents);
+
+          statusMsg.textContent = `Successfully created event "${args.title}"! Tap the downloaded file to add to calendar.`;
+          eventInput.value = '';
+        } else if (action === 'delete_event') {
+          statusMsg.className = 'status success';
+          statusMsg.textContent = 'Searching for event to cancel...';
+
+          const titleToCancel = args.title.toLowerCase();
+          const currentEvents = getStoredEvents();
+
+          // Match by title
+          const matches = currentEvents.filter(e => e.title.toLowerCase().includes(titleToCancel));
+
+          if (matches.length === 0) {
+            throw new Error(`Could not find any event matching "${args.title}" in your list.`);
+          } else if (matches.length > 1) {
+            // If multiple matches, see if we can filter by date if provided
+            if (args.date) {
+              const matchedDate = matches.filter(e => e.start.includes(args.date));
+              if (matchedDate.length === 1) {
+                deleteEventById(matchedDate[0].uid);
+                statusMsg.textContent = `Deleted "${matchedDate[0].title}".`;
+                eventInput.value = '';
+                return;
+              }
+            }
+            throw new Error(`Multiple events matched "${args.title}". Please be more specific or delete manually below.`);
+          } else {
+            deleteEventById(matches[0].uid);
+            statusMsg.textContent = `Deleted "${matches[0].title}".`;
+            eventInput.value = '';
+          }
+        }
       } catch (err) {
         statusMsg.className = 'status error';
         statusMsg.textContent = err.message;

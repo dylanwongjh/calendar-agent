@@ -43,6 +43,24 @@ CREATE_EVENT_TOOL = {
     }
 }
 
+DELETE_EVENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "delete_event",
+        "description": "Delete or cancel a calendar event from parsed natural language",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "The title of the event to delete"},
+                "date": {"type": "string", "description": "Optional date of the event (e.g. YYYY-MM-DD)"},
+                "needs_clarification": {"type": "boolean"},
+                "clarification_question": {"type": "string"}
+            },
+            "required": ["title"]
+        }
+    }
+}
+
 PARSE_TIMETABLE_TOOL = {
     "type": "function",
     "function": {
@@ -96,9 +114,10 @@ PARSE_TIMETABLE_TOOL = {
 def build_system_prompt(now):
     return f"""You are a calendar parsing assistant. Current date/time: {now.isoformat()} (Singapore time, SGT/UTC+8).
 
-Extract event details from the user's message and call create_event. You MUST call the function — do not reply in plain text.
+Extract event details from the user's message and call either create_event or delete_event. You MUST call one of these functions — do not reply in plain text.
 
-Rules:
+For event creation:
+- Call create_event.
 - Always assume Asia/Singapore timezone unless stated otherwise; output start/end as ISO 8601 with +08:00 offset.
 - For all-day or multi-day events with no specific times (e.g., "Leadership Camp from 5th to 7th July"), set all_day=true, and set start/end to 'YYYY-MM-DD' representing the start and end dates (inclusive as described by the user).
 - For multi-day events with specific times (e.g., "Training course from July 10 9am to July 12 5pm"), set start and end to the respective dates and times as ISO 8601.
@@ -107,6 +126,11 @@ Rules:
 - If only a start time is given with no duration, default to a 1-hour event.
 - For relative dates ("next Tuesday", "this Friday"), compute precisely from the current date given above — never guess.
 - Keep titles concise; move extra detail into the notes field.
+
+For event deletion/removal:
+- Call delete_event.
+- Use this if the user wants to cancel, remove, or delete an event (e.g. "cancel Basketball Practice", "remove the exam prep session").
+- Try to extract the title and the date of the event they want to remove.
 """
 
 @app.route("/parse-event", methods=["POST"])
@@ -124,15 +148,19 @@ def parse_event():
             {"role": "system", "content": build_system_prompt(now)},
             {"role": "user", "content": text}
         ],
-        tools=[CREATE_EVENT_TOOL],
-        tool_choice={"type": "function", "function": {"name": "create_event"}},
+        tools=[CREATE_EVENT_TOOL, DELETE_EVENT_TOOL],
+        tool_choice="auto",
         max_tokens=500,
     )
 
     message = response.choices[0].message
     if message.tool_calls:
-        args = json.loads(message.tool_calls[0].function.arguments)
-        return jsonify(args)
+        tool_call = message.tool_calls[0]
+        args = json.loads(tool_call.function.arguments)
+        return jsonify({
+            "action": tool_call.function.name,
+            "args": args
+        })
 
     return jsonify({"error": "Could not parse event", "raw": message.content}), 400
 
