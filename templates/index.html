@@ -7,15 +7,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0d0e12;
-      --card-bg: rgba(255, 255, 255, 0.03);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
-      --accent: #6366f1;
-      --accent-hover: #4f46e5;
-      --accent-success: #10b981;
-      --accent-success-hover: #059669;
+      --bg: #090f1d;
+      --card-bg: rgba(15, 23, 42, 0.45);
+      --card-border: rgba(147, 197, 253, 0.15);
+      --text: #f0f9ff;
+      --text-muted: #93c5fd;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --accent-success: #0d9488;
+      --accent-success-hover: #0f766e;
     }
     * {
       box-sizing: border-box;
@@ -23,7 +23,7 @@
       padding: 0;
     }
     body {
-      background-color: var(--bg);
+      background: radial-gradient(circle at 50% 50%, #142442 0%, #060a12 100%);
       color: var(--text);
       font-family: 'Outfit', sans-serif;
       display: flex;
@@ -31,6 +31,16 @@
       justify-content: center;
       min-height: 100vh;
       padding: 20px;
+      overflow-x: hidden;
+    }
+    #snowCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
     }
     .container {
       width: 100%;
@@ -39,29 +49,34 @@
       border: 1px solid var(--card-border);
       border-radius: 24px;
       padding: 32px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(56, 189, 248, 0.04);
+      position: relative;
+      z-index: 10;
     }
     h1 {
       font-size: 28px;
       font-weight: 700;
       margin-bottom: 8px;
-      background: linear-gradient(to right, #a5b4fc, #818cf8);
+      background: linear-gradient(to right, #ffffff, #93c5fd);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       text-align: center;
+      text-shadow: 0 2px 10px rgba(56, 189, 248, 0.1);
     }
     .subtitle {
       color: var(--text-muted);
       font-size: 14px;
       margin-bottom: 24px;
       text-align: center;
+      opacity: 0.9;
     }
     /* Tabs styling */
     .tabs {
       display: flex;
       gap: 8px;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(15, 23, 42, 0.6);
       padding: 6px;
       border-radius: 16px;
       margin-bottom: 24px;
@@ -82,7 +97,8 @@
     }
     .tab-btn.active {
       background: var(--accent);
-      color: #fff;
+      color: #060a12;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
     }
     .tab-content {
       display: none;
@@ -94,7 +110,7 @@
     textarea {
       width: 100%;
       height: 120px;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(15, 23, 42, 0.5);
       border: 1px solid var(--card-border);
       border-radius: 16px;
       color: var(--text);
@@ -103,10 +119,11 @@
       font-family: inherit;
       resize: none;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     textarea:focus {
       border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
     }
     /* Upload Zone */
     .upload-zone {
@@ -115,12 +132,12 @@
       padding: 32px 20px;
       text-align: center;
       cursor: pointer;
-      background: rgba(255, 255, 255, 0.01);
+      background: rgba(15, 23, 42, 0.3);
       transition: all 0.2s ease;
     }
     .upload-zone:hover, .upload-zone.dragover {
       border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.05);
+      background: rgba(56, 189, 248, 0.05);
     }
     .upload-zone img {
       max-width: 100%;
@@ -153,7 +170,7 @@
       letter-spacing: 0.5px;
     }
     .form-group input[type="date"] {
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(15, 23, 42, 0.5);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       color: var(--text);
@@ -161,6 +178,10 @@
       font-family: inherit;
       font-size: 14px;
       outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input[type="date"]:focus {
+      border-color: var(--accent);
     }
     .checkbox-group {
       flex-direction: row;
@@ -178,7 +199,7 @@
     button {
       width: 100%;
       background: var(--accent);
-      color: #fff;
+      color: #060a12;
       border: none;
       border-radius: 16px;
       padding: 16px;
@@ -186,19 +207,21 @@
       font-weight: 600;
       cursor: pointer;
       margin-top: 20px;
-      transition: background 0.2s, transform 0.1s;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
     }
     button:hover {
       background: var(--accent-hover);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
     }
     button:active {
       transform: scale(0.98);
     }
     button:disabled {
-      background: var(--card-border);
+      background: rgba(255, 255, 255, 0.05);
       color: var(--text-muted);
       cursor: not-allowed;
       transform: none;
+      box-shadow: none;
     }
     .status {
       margin-top: 16px;
@@ -207,7 +230,7 @@
       min-height: 20px;
     }
     .status.error { color: #f87171; }
-    .status.success { color: #34d399; }
+    .status.success { color: #38bdf8; }
 
     /* Timetable Preview Table */
     .preview-section {
@@ -226,7 +249,7 @@
       overflow-y: auto;
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(15, 23, 42, 0.4);
     }
     table {
       width: 100%;
@@ -239,7 +262,7 @@
       border-bottom: 1px solid var(--card-border);
     }
     th {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(15, 23, 42, 0.7);
       font-weight: 600;
       color: var(--text-muted);
       position: sticky;
@@ -250,12 +273,15 @@
     }
     .generate-btn {
       background: var(--accent-success);
+      color: #fff;
     }
     .generate-btn:hover {
       background: var(--accent-success-hover);
+      box-shadow: 0 0 15px rgba(13, 148, 136, 0.3);
     }
     .delete-btn {
       background: #ef4444;
+      color: #fff;
       padding: 6px 12px;
       font-size: 12px;
       border-radius: 8px;
@@ -264,10 +290,12 @@
     }
     .delete-btn:hover {
       background: #dc2626;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
     }
   </style>
 </head>
 <body>
+  <canvas id="snowCanvas"></canvas>
   <div class="container">
     <h1>Calendar Agent</h1>
     <p class="subtitle">Smart scheduling made completely effortless.</p>
@@ -1050,6 +1078,65 @@
       link.click();
       document.body.removeChild(link);
     });
+
+    // Snowfall Animation
+    (function() {
+      const canvas = document.getElementById('snowCanvas');
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const flakes = [];
+      const numFlakes = 50;
+
+      for (let i = 0; i < numFlakes; i++) {
+        flakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: Math.random() * 2 + 1,
+          d: Math.random() * numFlakes,
+          speed: Math.random() * 1 + 0.5
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        for (let i = 0; i < numFlakes; i++) {
+          const f = flakes[i];
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+        }
+        ctx.fill();
+        update();
+      }
+
+      let angle = 0;
+      function update() {
+        angle += 0.01;
+        for (let i = 0; i < numFlakes; i++) {
+          const f = flakes[i];
+          f.y += f.speed;
+          f.x += Math.sin(angle + f.d) * 0.5;
+
+          if (f.y > height) {
+            flakes[i] = { x: Math.random() * width, y: 0, r: f.r, d: f.d, speed: f.speed };
+          }
+        }
+      }
+
+      function animLoop() {
+        draw();
+        requestAnimationFrame(animLoop);
+      }
+      animLoop();
+    })();
   </script>
 </body>
 </html>
