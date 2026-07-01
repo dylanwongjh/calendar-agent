@@ -66,7 +66,7 @@ CREATE_ALARM_TOOL = {
     "type": "function",
     "function": {
         "name": "create_alarm",
-        "description": "Set a wake-up alarm for a specific time and label",
+        "description": "Set a wake-up alarm for a specific time and label. Only call this tool if the alarm is for today or tomorrow (within the next 24 hours). Do NOT call this tool for alarms further in the future.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -77,6 +77,7 @@ CREATE_ALARM_TOOL = {
         }
     }
 }
+
 
 ALARMS_FILE = os.path.join(os.path.dirname(__file__), "alarms.json")
 
@@ -171,11 +172,12 @@ For event deletion/removal:
 - Try to extract the title and the date of the event they want to remove.
 
 For alarm setting:
-- Call create_alarm.
-- Call this when the user specifically requests to set an alarm or wake up at a specific time (e.g., "set an alarm for 7:00 AM", "wake up at 7am").
+- Call create_alarm ONLY if the alarm is for today, tomorrow, or within the next 24 hours (e.g., "wake up tomorrow at 7am", "set alarm for 7:00 AM").
+- If the user requests an alarm for a date further in the future (more than 24 hours away, e.g. "set alarm for July 7th" when today is July 1st), do NOT call create_alarm. Only call create_event, and append a note about the alarm to the event description.
 - Set the time in HH:MM format (24-hour clock, e.g., "07:00" or "19:30").
 - Provide a helpful label (e.g., "Wake up for Basketball Practice").
-- If the user wants to set an alarm as part of an event (e.g. "I have basketball practice at 9am, set an alarm to wake up at 7am"), call BOTH create_event (for the practice) and create_alarm (for the wake-up alarm).
+- If the user wants to set an alarm as part of an event happening tomorrow, call BOTH create_event (for the event) and create_alarm (for the wake-up alarm).
+
 """
 
 @app.route("/parse-event", methods=["POST"])
